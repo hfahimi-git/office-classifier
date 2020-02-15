@@ -1,53 +1,72 @@
 package com.hfahimi;
 
-import org.apache.poi.POIDocument;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+import org.apache.poi.hpsf.MarkUnsupportedException;
+import org.apache.poi.hpsf.NoPropertySetStreamException;
+import org.apache.poi.hpsf.PropertySetFactory;
+import org.apache.poi.hpsf.SummaryInformation;
 import org.apache.poi.ooxml.POIXMLDocument;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
+import org.apache.poi.poifs.eventfilesystem.POIFSReader;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Optional;
 
 public class Word extends Document {
-    private POIXMLDocument office = null;
-    private POIDocument docOffice = null;
+    private POIXMLDocument docx = null;
+    private SummaryInformation doc;
 
     public Word(String file) throws IOException {
-        if (file.endsWith(".docx"))
-            office = new XWPFDocument(Files.newInputStream(Paths.get(file)));
-        else if (file.endsWith(".doc"))
-            docOffice = new HSSFWorkbook(Files.newInputStream(Paths.get(file)));
+        if (file.endsWith(".doc")) {
+            POIFSReader r = new POIFSReader();
+            r.registerListener(poifsReaderEvent -> {
+                        SummaryInformation si = null;
+                        try {
+                            doc = (SummaryInformation) PropertySetFactory.create(poifsReaderEvent.getStream());
+                        } catch (NoPropertySetStreamException | MarkUnsupportedException | IOException e) {
+                            e.printStackTrace();
+                        }
+                    },
+                    "\005SummaryInformation");
+            r.read(new FileInputStream(file));
+        } else if (file.endsWith(".docx")) {
+            docx = new XWPFDocument(Files.newInputStream(Paths.get(file)));
+        }
+        else {
+            throw new IOException("invalid type");
+        }
     }
 
     public String getAuthor() {
-        try {
-            if (office != null)
-                return office.getPackage().getPackageProperties().getCreatorProperty().orElse("UNKNOWN");
-            else if (docOffice != null)
-                return Optional.ofNullable(docOffice.getSummaryInformation().getAuthor()).orElse("UNKNOWN");
-        } catch (InvalidFormatException ignored) {
+        if (docx != null) {
+            try {
+                return docx.getPackage().getPackageProperties().getCreatorProperty().orElse("UNKNOWN");
+            } catch (InvalidFormatException e) {
+                return "UNKNOWN";
+            }
         }
-        return "UNKNOWN";
-    }
-
-    public void close() throws IOException {
-        if (office != null)
-            office.close();
-        else if(docOffice != null)
-            docOffice.close();
+        else {
+            return Optional.ofNullable(doc.getAuthor()).orElse("UNKNOWN");
+        }
     }
 
     public String getLastModifier() {
-        try {
-            if (office != null)
-                return office.getPackage().getPackageProperties().getLastModifiedByProperty().orElse("UNKNOWN");
-            else if (docOffice != null)
-                return Optional.ofNullable(docOffice.getSummaryInformation().getLastAuthor()).orElse("UNKNOWN");
-        } catch (InvalidFormatException ignored) {
+        if (docx != null) {
+            try {
+                return docx.getPackage().getPackageProperties().getLastModifiedByProperty().orElse("UNKNOWN");
+            } catch (InvalidFormatException e) {
+                return "UNKNOWN";
+            }
         }
-        return "UNKNOWN";
+        else {
+            return Optional.ofNullable(doc.getLastAuthor()).orElse("UNKNOWN");
+        }
     }
+
+    public void close() {
+    }
+
 }

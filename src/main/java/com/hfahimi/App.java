@@ -39,7 +39,7 @@ public class App {
 
 
     public static void main(String[] args) throws InterruptedException {
-        List<String> files = getFiles(Paths.get(ROOT), ".xlsx", ".docx", ".xls");
+        List<String> files = getFiles(Paths.get(ROOT), ".xlsx", ".docx", ".xls", ".doc");
 
         if (files == null) {
             System.exit(-1);
