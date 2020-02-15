@@ -1,9 +1,5 @@
 package com.hfahimi;
 
-import org.apache.poi.ooxml.POIXMLDocument;
-import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,32 +23,16 @@ public class Task implements Runnable {
     public void run() {
         try {
             String file = blockingQueue.take();
-            String folder = "UNKNOWN" + App.SEP + "UNKNOWN";
-            POIXMLDocument office;
-            if (file.endsWith(".docx")) {
-                office = new XWPFDocument(Files.newInputStream(Paths.get(file)));
-            } else if(file.endsWith(".xlsx")) {
-                office = new XSSFWorkbook(Files.newInputStream(Paths.get(file)));
-            }
-            else {
-                return;
-            }
+            Document office = Document.get(file);
             LOGGER.info("{} just opened", file);
-
-            try {
-                String author = office.getPackage().getPackageProperties().getCreatorProperty().orElse("UNKNOWN");
-                String lastModifier = office.getPackage().getPackageProperties().getLastModifiedByProperty().orElse("UNKNOWN");
-                folder = author + App.SEP + lastModifier;
-            } catch (InvalidFormatException e) {
-                LOGGER.error("error {}", e.getMessage());
-            }
-            LOGGER.info("{} open file, author" + App.SEP + "lastModifier: {}", file, folder);
+            String folder = office.getAuthor() + App.SEP + office.getLastModifier();
+            office.close();
+            LOGGER.info("{} file info, author" + App.SEP + "lastModifier: {}", file, folder);
 
             Path destFolder = Paths.get(App.ROOT + folder + File.separator);
             if(!Files.isDirectory(destFolder)) {
                 Files.createDirectories(destFolder);
             }
-            office.close();
 
             Files.copy(
                     Paths.get(file),
@@ -62,6 +42,8 @@ public class Task implements Runnable {
             LOGGER.info("{} file just closed", file);
         } catch (IOException | InterruptedException e) {
             LOGGER.error("error {}", e.getMessage());
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
